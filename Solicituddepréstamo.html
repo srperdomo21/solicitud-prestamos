@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PERDOMO SOVEREIGN CAPITAL - Sistema de Préstamos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            navy: '#1a3673',
+                            navyDark: '#11234b',
+                            navyLight: '#2a4d9b',
+                            green: '#25D366',
+                            greenDark: '#1da851',
+                            gold: '#f59e0b'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f1f5f9;
+            touch-action: manipulation;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .form-input {
+            border: 1.5px solid #cbd5e1;
+            border-radius: 0.75rem;
+            padding: 0.7rem 0.85rem;
+            font-size: 0.9rem;
+            width: 100%;
+            outline: none;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+            color: #0f172a;
+        }
+        .form-input:focus {
+            border-color: #1a3673;
+            box-shadow: 0 0 0 3px rgba(26, 54, 115, 0.15);
+        }
+        .form-label {
+            font-weight: 700;
+            color: #1e293b;
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+            display: block;
+        }
+        canvas {
+            touch-action: none;
+        }
+        .badge-status {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-slate-800 antialiased selection:bg-blue-100 pb-20">
+
+    <!-- Top Mode Switch Banner (For Testing & Switch between Admin and Link Mode) -->
+    <div id="modeBanner" class="bg-slate-900 text-slate-300 text-[11px] px-3 py-1.5 flex items-center justify-between border-b border-slate-800">
+        <div class="flex items-center gap-1.5 truncate">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Modo actual: <strong id="currentModeLabel" class="text-white">Panel de Administración</strong></span>
+        </div>
+        <button type="button" id="btnToggleMode" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2.5 py-0.5 rounded border border-slate-700 font-bold transition shrink-0">
+            🔀 Probar Modo Cliente
+        </button>
+    </div>
+
+    <!-- Main Header -->
+    <header class="bg-brand-navy text-white px-4 py-4 shadow-lg sticky top-0 z-30">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 bg-amber-400 text-brand-navy rounded-xl flex items-center justify-center font-black shadow-inner">
+                    <i class="fa-solid fa-building-columns text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-black tracking-wide uppercase leading-tight text-white">
+                        PERDOMO SOVEREIGN CAPITAL
+                    </h1>
+                    <p class="text-[10px] text-blue-200 font-medium">Gestión e Inversiones Financieras</p>
+                </div>
+            </div>
+
+            <!-- Header Admin Actions -->
+            <div id="adminHeaderActions" class="flex items-center gap-1">
+                <button type="button" id="btnShareLink" title="Copiar Enlace de Solicitud para WhatsApp" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1.5 shadow transition">
+                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                    <span class="hidden sm:inline">Enviar Link</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================================================= -->
+    <!-- 1. VISTA: MODO CLIENTE (FORMULARIO PUBLICO ENVIADO POR LINK)             -->
+    <!-- ========================================================================= -->
+    <main id="clientView" class="hidden max-w-md mx-auto w-full px-4 pt-4 flex-grow">
+        <!-- Banner del Enlace -->
+        <div class="bg-gradient-to-r from-blue-900 to-brand-navy text-white p-4 rounded-2xl shadow-md mb-4 border border-blue-800 text-center">
+            <h2 class="text-base font-black text-amber-400 uppercase tracking-wide">Solicitud de Préstamo Rápido</h2>
+            <p class="text-xs text-blue-100 mt-1">Completa tus datos a continuación para procesar tu solicitud inmediatamente sin filas.</p>
+        </div>
+
+        <!-- Formulario del Cliente -->
+        <form id="clientLoanForm" onsubmit="return false;" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4 mb-6">
+            
+            <!-- SECCION 1: DATOS PERSONALES -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-black text-brand-navy uppercase tracking-wider border-b pb-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-user-check text-amber-500"></i> 1. Información Personal
+                </h3>
+
+                <div>
+                    <label for="c_nombre" class="form-label">Nombre Completo <span class="text-red-500">*</span></label>
+                    <input type="text" id="c_nombre" placeholder="Ej. Marianela Brand" class="form-input" required />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="c_apodo" class="form-label">Apodo (Sobrenombre)</label>
+                        <input type="text" id="c_apodo" placeholder="Ej. La Morena" class="form-input" />
+                    </div>
+                    <div>
+                        <label for="c_cedula" class="form-label">Cédula <span class="text-red-500">*</span></label>
+                        <input type="tel" id="c_cedula" inputmode="numeric" placeholder="001-0000000-0" maxlength="13" class="form-input" required />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="c_telefono" class="form-label">Teléfono / WhatsApp <span class="text-red-500">*</span></label>
+                    <input type="tel" id="c_telefono" inputmode="numeric" placeholder="809-000-0000" maxlength="12" class="form-input" required />
+                </div>
+            </div>
+
+            <!-- SECCION 2: UBICACION Y DIRECCION -->
+            <div class="space-y-3 pt-2">
+                <h3 class="text-xs font-black text-brand-navy uppercase tracking-wider border-b pb-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-location-dot text-amber-500"></i> 2. Dirección Completa
+                </h3>
+
+                <!-- GPS Button -->
+                <button type="button" id="c_btnGps" class="w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-brand-navy font-semibold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-crosshairs text-blue-600 text-sm"></i>
+                    <span id="c_gpsBtnText">Adjuntar Ubicación GPS Actual (Opcional)</span>
+                </button>
+                <div id="c_gpsBox" class="hidden text-xs bg-emerald-50 text-emerald-800 p-2.5 rounded-xl border border-emerald-200 flex items-center justify-between">
+                    <span><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> GPS Capturado correctamente</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="c_provincia" class="form-label">Provincia <span class="text-red-500">*</span></label>
+                        <input type="text" id="c_provincia" placeholder="Ej. Santo Domingo" class="form-input" required />
+                    </div>
+                    <div>
+                        <label for="c_ciudad" class="form-label">Ciudad / Municipio <span class="text-red-500">*</span></label>
+                        <input type="text" id="c_ciudad" placeholder="Ej. Santiago" class="form-input" required />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label for="c_barrio" class="form-label text-xs">Barrio / Sector <span class="text-red-500">*</span></label>
+                        <input type="text" id="c_barrio" placeholder="Ej. Los Rieles" class="form-input px-2 text-xs" required />
+                    </div>
+                    <div>
+                        <label for="c_calle" class="form-label text-xs">Calle <span class="text-red-500">*</span></label>
+                        <input type="text" id="c_calle" placeholder="Ej. Principal" class="form-input px-2 text-xs" required />
+                    </div>
+                    <div>
+                        <label for="c_numero" class="form-label text-xs">Nº Casa</label>
+                        <input type="text" id="c_numero" placeholder="Ej. #12" class="form-input px-2 text-xs" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCION 3: DATOS DEL PRESTAMO Y TRABAJO -->
+            <div class="space-y-3 pt-2">
+                <h3 class="text-xs font-black text-brand-navy uppercase tracking-wider border-b pb-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-sack-dollar text-amber-500"></i> 3. Datos del Préstamo y Trabajo
+                </h3>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="c_monto" class="form-label">Monto Solicitado (RD$) <span class="text-red-500">*</span></label>
+                        <input type="number" id="c_monto" placeholder="Ej. 15000" class="form-input font-bold text-emerald-700" required />
+                    </div>
+                    <div>
+                        <label for="c_frecuencia" class="form-label">Frecuencia de Pago <span class="text-red-500">*</span></label>
+                        <select id="c_frecuencia" class="form-input bg-white font-medium" required>
+                            <option value="Diario">Diario</option>
+                            <option value="Semanal" selected>Semanal</option>
+                            <option value="Quincenal">Quincenal</option>
+                            <option value="Mensual">Mensual</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="c_trabajo" class="form-label">¿En qué trabaja / Negocio? <span class="text-red-500">*</span></label>
+                        <input type="text" id="c_trabajo" placeholder="Ej. Colmado / Empleado" class="form-input" required />
+                    </div>
+                    <div>
+                        <label for="c_ingresos" class="form-label">Ingreso Mensual Aprox. (RD$) <span class="text-red-500">*</span></label>
+                        <input type="number" id="c_ingresos" placeholder="Ej. 30000" class="form-input" required />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="c_motivo" class="form-label">Motivo o Uso del Dinero</label>
+                    <input type="text" id="c_motivo" placeholder="Ej. Inversión en mercancía o emergencia" class="form-input" />
+                </div>
+            </div>
+
+            <!-- SECCION 4: FOTOS OBLIGATORIAS (3 FOTOS) -->
+            <div class="space-y-3 pt-2">
+                <h3 class="text-xs font-black text-brand-navy uppercase tracking-wider border-b pb-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-camera text-amber-500"></i> 4. Fotos Verificación de Identidad
+                </h3>
+                <p class="text-[11px] text-slate-500">Sube imágenes claras para la aprobación rápida de tu expediente:</p>
+
+                <!-- 1. Foto Cédula Frontal -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <label class="form-label text-xs flex items-center justify-between">
+                        <span>📷 1. Foto Cédula (Frontal / Alante) <span class="text-red-500">*</span></span>
+                        <span id="c_statusImg1" class="text-[10px] text-slate-400">Sin archivo</span>
+                    </label>
+                    <input type="file" id="c_fileImg1" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-brand-navy hover:file:bg-blue-100 cursor-pointer" required />
+                    <img id="c_prevImg1" class="hidden mt-2 h-24 rounded-lg border object-cover mx-auto" />
+                </div>
+
+                <!-- 2. Foto Cédula Reverso -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <label class="form-label text-xs flex items-center justify-between">
+                        <span>📷 2. Foto Cédula (Reverso / Atrás) <span class="text-red-500">*</span></span>
+                        <span id="c_statusImg2" class="text-[10px] text-slate-400">Sin archivo</span>
+                    </label>
+                    <input type="file" id="c_fileImg2" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-brand-navy hover:file:bg-blue-100 cursor-pointer" required />
+                    <img id="c_prevImg2" class="hidden mt-2 h-24 rounded-lg border object-cover mx-auto" />
+                </div>
+
+                <!-- 3. Selfie con Cédula -->
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <label class="form-label text-xs flex items-center justify-between">
+                        <span>🤳 3. Selfie del Cliente Sosteniendo Cédula <span class="text-red-500">*</span></span>
+                        <span id="c_statusImg3" class="text-[10px] text-slate-400">Sin archivo</span>
+                    </label>
+                    <input type="file" id="c_fileImg3" accept="image/*" class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-brand-navy hover:file:bg-blue-100 cursor-pointer" required />
+                    <img id="c_prevImg3" class="hidden mt-2 h-24 rounded-lg border object-cover mx-auto" />
+                </div>
+            </div>
+
+            <!-- SECCION 5: FIRMA DIGITAL -->
+            <div class="space-y-2 pt-2">
+                <div class="flex items-center justify-between">
+                    <label class="form-label mb-0 flex items-center gap-1">
+                        ✍️ Firma del Cliente (Digital) <span class="text-red-500">*</span>
+                    </label>
+                    <button type="button" id="c_btnClearSig" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-2.5 py-1 rounded-lg transition">
+                        Limpiar
+                    </button>
+                </div>
+                <div class="relative w-full rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 overflow-hidden">
+                    <canvas id="c_sigCanvas" class="w-full h-32 bg-white cursor-crosshair block"></canvas>
+                </div>
+                <p class="text-[10px] text-slate-500">Dibuja tu firma con el dedo en el recuadro blanco.</p>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-3">
+                <button type="button" id="c_btnSubmit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base py-3.5 px-4 rounded-xl shadow-lg transition flex items-center justify-center space-x-2 active:scale-[0.99]">
+                    <i class="fa-solid fa-paper-plane text-lg"></i>
+                    <span>ENVIAR SOLICITUD DE PRÉSTAMO</span>
+                </button>
+            </div>
+        </form>
+
+        <!-- Pantalla de Éxito al Cliente -->
+        <div id="clientSuccessScreen" class="hidden bg-white rounded-2xl shadow-xl border border-emerald-200 p-6 text-center space-y-4 my-6">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <h2 class="text-xl font-black text-slate-900">¡Solicitud Enviada con Éxito!</h2>
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Hemos recibido tus datos y documentos correctamente. El equipo de <strong class="text-brand-navy">PERDOMO SOVEREIGN CAPITAL</strong> está evaluando tu solicitud y te contactará en breve.
+            </p>
+
+            <div class="pt-2 space-y-2">
+                <button type="button" id="c_btnNotifyWa" class="w-full bg-brand-green hover:bg-brand-greenDark text-white font-extrabold py-3 px-4 rounded-xl shadow transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-brands fa-whatsapp text-xl"></i>
+                    <span>Avisar al Prestamista por WhatsApp</span>
+                </button>
+                <button type="button" onclick="location.reload()" class="w-full bg-slate-100 text-slate-600 font-bold py-2.5 rounded-xl text-xs">
+                    Llenar otra solicitud
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- 2. VISTA: MODO ADMINISTRADOR (PANEL PRINCIPAL DEL PRESTAMISTA)            -->
+    <!-- ========================================================================= -->
+    <main id="adminView" class="max-w-md mx-auto w-full px-4 pt-4 flex-grow space-y-4">
+
+        <!-- Banner Promocional para WhatsApp Link -->
+        <div class="bg-slate-900 text-white p-3.5 rounded-2xl shadow-md border border-slate-800 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-green/20 text-brand-green flex items-center justify-center text-xl shrink-0">
+                    <i class="fa-brands fa-whatsapp"></i>
+                </div>
+                <div>
+                    <h3 class="text-xs font-black text-white">Link para Clientes</h3>
+                    <p class="text-[11px] text-slate-400">Envía el formulario a tu cliente para que llene sus datos y fotos.</p>
+                </div>
+            </div>
+            <button type="button" id="btnAdminCopyLink" class="bg-brand-green hover:bg-brand-greenDark text-white font-black text-xs px-3 py-2 rounded-xl shrink-0 shadow transition flex items-center gap-1">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copiar Link</span>
+            </button>
+        </div>
+
+        <!-- PESTAÑA 1: TABLERO / RESUMEN -->
+        <section id="tab-tablero" class="tab-content space-y-4">
+            <!-- Summary Stats Cards -->
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Prestado Activo</span>
+                    <span id="dashTotalPrestado" class="text-lg font-black text-brand-navy mt-0.5 block">RD$ 0</span>
+                    <span class="text-[10px] text-slate-500 font-medium">Monto capital vigente</span>
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Clientes Activos</span>
+                    <span id="dashTotalClientes" class="text-lg font-black text-emerald-600 mt-0.5 block">0</span>
+                    <span class="text-[10px] text-slate-500 font-medium">Registrados en sistema</span>
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Solicitudes Pendientes</span>
+                    <span id="dashTotalSolicitudes" class="text-lg font-black text-amber-500 mt-0.5 block">0</span>
+                    <span class="text-[10px] text-slate-500 font-medium">Esperando revisión</span>
+                </div>
+                <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Préstamos Aprobados</span>
+                    <span id="dashTotalPrestamos" class="text-lg font-black text-blue-600 mt-0.5 block">0</span>
+                    <span class="text-[10px] text-slate-500 font-medium">Histórico total</span>
+                </div>
+            </div>
+
+            <!-- Accesos Rápidos -->
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <h3 class="text-xs font-bold text-slate-700 uppercase">Acciones Rápidas</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button type="button" onclick="switchTab('solicitudes')" class="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold text-xs p-3 rounded-xl flex items-center justify-between transition">
+                        <span>📥 Ver Solicitudes</span>
+                        <span id="badgeSolicitudesCount" class="bg-amber-500 text-white text-[10px] px-2 py-0.5 rounded-full font-black">0</span>
+                    </button>
+                    <button type="button" onclick="switchTab('clientes')" class="bg-blue-50 hover:bg-blue-100 text-brand-navy border border-blue-200 font-bold text-xs p-3 rounded-xl flex items-center justify-between transition">
+                        <span>📁 Ver Clientes</span>
+                        <i class="fa-solid fa-arrow-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- PESTAÑA 2: SOLICITUDES PENDIENTES (INBOX REAL-TIME) -->
+        <section id="tab-solicitudes" class="tab-content hidden space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-sm font-black text-brand-navy uppercase flex items-center gap-1.5">
+                    <i class="fa-solid fa-inbox text-amber-500"></i> Solicitudes de Clientes
+                </h2>
+                <span id="pendingCountBadge" class="badge-status bg-amber-100 text-amber-800">0 Pendientes</span>
+            </div>
+
+            <!-- Lista de Solicitudes -->
+            <div id="solicitudesList" class="space-y-2.5">
+                <!-- Se llena dinámicamente con JS desde Firestore -->
+                <div class="bg-white p-6 text-center rounded-2xl border border-slate-200 text-slate-400">
+                    <i class="fa-solid fa-spinner fa-spin text-2xl mb-2 text-brand-navy"></i>
+                    <p class="text-xs">Cargando solicitudes en tiempo real...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- PESTAÑA 3: CLIENTES ACTIVOS -->
+        <section id="tab-clientes" class="tab-content hidden space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-sm font-black text-brand-navy uppercase flex items-center gap-1.5">
+                    <i class="fa-solid fa-users text-emerald-600"></i> Directorio de Clientes
+                </h2>
+                <span id="activeClientsBadge" class="badge-status bg-emerald-100 text-emerald-800">0 Registrados</span>
+            </div>
+
+            <!-- Search input -->
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+                <input type="text" id="clientSearchInput" placeholder="Buscar cliente por nombre o cédula..." class="form-input pl-9 text-xs" />
+            </div>
+
+            <!-- Lista de Clientes -->
+            <div id="clientesList" class="space-y-2.5">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </section>
+
+        <!-- PESTAÑA 4: PRESTAMOS ACTIVOS -->
+        <section id="tab-prestamos" class="tab-content hidden space-y-3">
+            <div class="flex items-center justify-between px-1">
+                <h2 class="text-sm font-black text-brand-navy uppercase flex items-center gap-1.5">
+                    <i class="fa-solid fa-hand-holding-dollar text-blue-600"></i> Préstamos Aprobados
+                </h2>
+                <span id="activeLoansBadge" class="badge-status bg-blue-100 text-blue-800">0 Activos</span>
+            </div>
+
+            <!-- Lista de Préstamos -->
+            <div id="prestamosList" class="space-y-2.5">
+                <!-- Se llena dinámicamente -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL DE REVISIÓN Y APROBACIÓN DE SOLICITUD POR EL PRESTAMISTA            -->
+    <!-- ========================================================================= -->
+    <div id="approvalModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 overflow-y-auto">
+        <div class="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full mx-auto max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200">
+            
+            <!-- Modal Header -->
+            <div class="bg-brand-navy text-white px-5 py-4 flex items-center justify-between shrink-0">
+                <div>
+                    <h3 class="font-black text-base flex items-center gap-2">
+                        <span>🔍 Revisar Solicitud de Cliente</span>
+                    </h3>
+                    <p class="text-[11px] text-blue-200">Revisa la información, documentos y aprueba el préstamo.</p>
+                </div>
+                <button type="button" id="btnCloseModal" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Modal Content Scrollable -->
+            <div class="p-5 overflow-y-auto space-y-4 flex-grow text-xs">
+                
+                <!-- Datos del Cliente Resumen Card -->
+                <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <h4 id="m_clienteNombre" class="font-black text-sm text-brand-navy">---</h4>
+                        <span id="m_clienteApodo" class="bg-amber-100 text-amber-900 font-bold text-[10px] px-2 py-0.5 rounded-full">--</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                        <p><strong>Cédula:</strong> <span id="m_clienteCedula">--</span></p>
+                        <p><strong>Teléfono:</strong> <span id="m_clienteTelefono">--</span></p>
+                        <p class="col-span-2"><strong>Dirección:</strong> <span id="m_clienteDireccion">--</span></p>
+                        <p id="m_clienteGpsBox" class="col-span-2 hidden">
+                            <a id="m_clienteGpsLink" href="#" target="_blank" class="text-blue-600 font-bold underline">📍 Ver Ubicación exacta en Google Maps</a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Trabajo e Ingresos -->
+                <div class="bg-blue-50/50 p-3.5 rounded-2xl border border-blue-100 grid grid-cols-2 gap-2 text-slate-700">
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block uppercase">Trabajo / Negocio</span>
+                        <span id="m_clienteTrabajo" class="font-extrabold text-slate-900">--</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 font-bold block uppercase">Ingreso Mensual</span>
+                        <span id="m_clienteIngresos" class="font-extrabold text-emerald-700">--</span>
+                    </div>
+                    <div class="col-span-2 pt-1 border-t border-blue-100">
+                        <span class="text-[10px] text-slate-400 font-bold block uppercase">Monto Solicitado por Cliente</span>
+                        <span id="m_solicitadoMonto" class="font-black text-base text-brand-navy">--</span>
+                        <span id="m_solicitadoFrecuencia" class="text-xs font-semibold text-slate-600 ml-1">--</span>
+                    </div>
+                </div>
+
+                <!-- Galería de 3 Fotos + Firma -->
+                <div class="space-y-2">
+                    <h4 class="font-bold text-slate-800 uppercase text-[11px]"> Documentación Fotográfica y Firma</h4>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <span class="text-[9px] font-bold text-slate-500 block mb-1">Cédula Alante</span>
+                            <img id="m_imgFrontal" src="" onclick="openLightbox(this.src)" class="h-20 w-full object-cover rounded-xl border border-slate-300 bg-slate-100 cursor-pointer shadow-sm hover:opacity-90" />
+                        </div>
+                        <div>
+                            <span class="text-[9px] font-bold text-slate-500 block mb-1">Cédula Atrás</span>
+                            <img id="m_imgReverso" src="" onclick="openLightbox(this.src)" class="h-20 w-full object-cover rounded-xl border border-slate-300 bg-slate-100 cursor-pointer shadow-sm hover:opacity-90" />
+                        </div>
+                        <div>
+                            <span class="text-[9px] font-bold text-slate-500 block mb-1">Selfie con Cédula</span>
+                            <img id="m_imgSelfie" src="" onclick="openLightbox(this.src)" class="h-20 w-full object-cover rounded-xl border border-slate-300 bg-slate-100 cursor-pointer shadow-sm hover:opacity-90" />
+                        </div>
+                    </div>
+
+                    <!-- Display Digital Signature -->
+                    <div class="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center mt-2">
+                        <span class="text-[10px] font-bold text-slate-500 block">Firma Digital Registrada del Cliente</span>
+                        <img id="m_imgFirma" src="" class="h-16 mx-auto object-contain my-1" />
+                    </div>
+                </div>
+
+                <!-- EDICION DE APROBACIÓN POR EL PRESTAMISTA -->
+                <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 space-y-3">
+                    <h4 class="font-black text-emerald-900 uppercase text-xs flex items-center gap-1">
+                        <i class="fa-solid fa-sliders text-emerald-600"></i> Términos de Aprobación (Modificables)
+                    </h4>
+
+                    <div>
+                        <label for="m_inputMontoAprobado" class="form-label text-emerald-950">Monto Aprobado (RD$) <span class="text-xs font-normal text-emerald-700">(Puedes cambiarlo)</span></label>
+                        <input type="number" id="m_inputMontoAprobado" class="form-input text-base font-black text-emerald-700 border-emerald-300" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label for="m_selectFrecuencia" class="form-label text-emerald-950">Frecuencia Pago</label>
+                            <select id="m_selectFrecuencia" class="form-input bg-white text-xs font-bold">
+                                <option value="Diario">Diario</option>
+                                <option value="Semanal">Semanal</option>
+                                <option value="Quincenal">Quincenal</option>
+                                <option value="Mensual">Mensual</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="m_inputInteres" class="form-label text-emerald-950">Interés Estimado (%)</label>
+                            <input type="number" id="m_inputInteres" value="20" class="form-input text-xs font-bold" />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="m_selectZona" class="form-label text-emerald-950">Zona Asignada</label>
+                        <select id="m_selectZona" class="form-input bg-white text-xs font-semibold">
+                            <option value="#1 - Zona Principal (Lunes)">#1 - Zona Principal (Lunes)</option>
+                            <option value="#2 - Zona Norte (Martes)">#2 - Zona Norte (Martes)</option>
+                            <option value="#3 - Zona Sur (Miércoles)">#3 - Zona Sur (Miércoles)</option>
+                            <option value="#4 - Zona Este (Jueves)">#4 - Zona Este (Jueves)</option>
+                            <option value="#5 - Zona Oeste (Viernes)">#5 - Zona Oeste (Viernes)</option>
+                            <option value="#6 - Zona Especial (Sábado)">#6 - Zona Especial (Sábado)</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Modal Footer Actions -->
+            <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                <button type="button" id="btnRejectRequest" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold px-3 py-2.5 rounded-xl text-xs transition flex items-center gap-1">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span>Rechazar</span>
+                </button>
+
+                <button type="button" id="btnApproveRequest" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black px-4 py-2.5 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check text-sm"></i>
+                    <span>APROBAR Y CREAR CLIENTE</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIGHTBOX PARA AMPLIAR FOTOS DE DOCUMENTOS -->
+    <div id="lightbox" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4" onclick="this.classList.add('hidden')">
+        <img id="lightboxImg" src="" class="max-h-full max-w-full rounded-lg object-contain shadow-2xl" />
+    </div>
+
+    <!-- BOTTOM NAVBAR (ESTILO PERDOMO CAPITAL APLICACIÓN MÓVIL) -->
+    <nav id="bottomNav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 shadow-lg">
+        <div class="max-w-md mx-auto grid grid-cols-4 text-center py-2">
+            
+            <button type="button" onclick="switchTab('tablero')" id="nav-tablero" class="nav-btn text-brand-navy flex flex-col items-center justify-center gap-0.5">
+                <i class="fa-solid fa-chart-pie text-lg"></i>
+                <span class="text-[10px] font-extrabold">Tablero</span>
+            </button>
+
+            <button type="button" onclick="switchTab('solicitudes')" id="nav-solicitudes" class="nav-btn text-slate-400 hover:text-brand-navy flex flex-col items-center justify-center gap-0.5 relative">
+                <i class="fa-solid fa-inbox text-lg"></i>
+                <span class="text-[10px] font-bold">Solicitudes</span>
+                <span id="navSolicitudesBadge" class="hidden absolute top-0 right-5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white"></span>
+            </button>
+
+            <button type="button" onclick="switchTab('clientes')" id="nav-clientes" class="nav-btn text-slate-400 hover:text-brand-navy flex flex-col items-center justify-center gap-0.5">
+                <i class="fa-solid fa-folder-open text-lg"></i>
+                <span class="text-[10px] font-bold">Clientes</span>
+            </button>
+
+            <button type="button" onclick="switchTab('prestamos')" id="nav-prestamos" class="nav-btn text-slate-400 hover:text-brand-navy flex flex-col items-center justify-center gap-0.5">
+                <i class="fa-solid fa-hand-holding-dollar text-lg"></i>
+                <span class="text-[10px] font-bold">Préstamos</span>
+            </button>
+
+        </div>
+    </nav>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-16 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs font-semibold hidden flex items-center gap-2 max-w-xs w-full">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-amber-400"></i>
+        <span id="toastMsg" class="flex-1">Notificación</span>
+    </div>
+
+    <!-- FIREBASE INITIALIZATION & APPLICATION CODE -->
+    
+    <script>
+    // ==========================================
+    // CONFIGURACIÓN DE SUPABASE
+    // ==========================================
+    // ⚠️ REEMPLAZA ESTOS DATOS CON LOS DE TU PROYECTO EN SUPABASE
+    const SUPABASE_URL = 'https://quspjrizkyhowquonyum.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_5MaNKrJoOhBCYu8I5cY0qw_ThxCOtAQ';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Global State
+    let activeSolicitudes = [];
+    let activeClientes = [];
+    let activePrestamos = [];
+    let currentReviewItem = null;
+    let gpsData = null;
+
+    // Base64 Stores for 3 Photos
+    let img1Base64 = '';
+    let img2Base64 = '';
+    let img3Base64 = '';
+
+    // UI Toast helper
+    window.showToast = function(msg, type = 'info') {
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toastMsg');
+        const toastIcon = document.getElementById('toastIcon');
+
+        toastMsg.innerText = msg;
+        if (type === 'error') {
+            toastIcon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+        } else if (type === 'success') {
+            toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+        } else {
+            toastIcon.className = 'fa-solid fa-circle-info text-amber-400';
+        }
+
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3500);
+    };
+
+    // Lightbox helper
+    window.openLightbox = function(src) {
+        if (!src) return;
+        document.getElementById('lightboxImg').src = src;
+        document.getElementById('lightbox').classList.remove('hidden');
+    };
+
+    // Tab Navigation helper
+    window.switchTab = function(tabName) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.classList.remove('text-brand-navy');
+            btn.classList.add('text-slate-400');
+        });
+
+        const activeTab = document.getElementById(`tab-${tabName}`);
+        const activeNav = document.getElementById(`nav-${tabName}`);
+        if (activeTab) activeTab.classList.remove('hidden');
+        if (activeNav) {
+            activeNav.classList.remove('text-slate-400');
+            activeNav.classList.add('text-brand-navy');
+        }
+    };
+
+    // Mode Switching (Admin vs Client Form)
+    function checkMode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const isClientMode = urlParams.get('solicitud') === '1';
+
+        const clientView = document.getElementById('clientView');
+        const adminView = document.getElementById('adminView');
+        const bottomNav = document.getElementById('bottomNav');
+        const currentModeLabel = document.getElementById('currentModeLabel');
+        const btnToggleMode = document.getElementById('btnToggleMode');
+        const adminHeaderActions = document.getElementById('adminHeaderActions');
+
+        if (isClientMode) {
+            clientView.classList.remove('hidden');
+            adminView.classList.add('hidden');
+            bottomNav.classList.add('hidden');
+            adminHeaderActions.classList.add('hidden');
+            currentModeLabel.textContent = 'Cliente (Vista de Solicitud)';
+            btnToggleMode.textContent = '⚙️ Ir a Panel Prestamista';
+        } else {
+            clientView.classList.add('hidden');
+            adminView.classList.remove('hidden');
+            bottomNav.classList.remove('hidden');
+            adminHeaderActions.classList.remove('hidden');
+            currentModeLabel.textContent = 'Panel de Administración';
+            btnToggleMode.textContent = '🔀 Probar Link Cliente';
+        }
+    }
+
+    document.getElementById('btnToggleMode').addEventListener('click', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('solicitud') === '1') {
+            window.location.href = window.location.pathname;
+        } else {
+            window.location.href = window.location.pathname + '?solicitud=1';
+        }
+    });
+
+    // Copy Direct Link for WhatsApp
+    function getClientLink() {
+        return window.location.origin + window.location.pathname + '?solicitud=1';
+    }
+
+    function copyLinkAction() {
+        const link = getClientLink();
+        const textToCopy = `Hola, completa tu solicitud de préstamo en el siguiente enlace de PERDOMO SOVEREIGN CAPITAL:\n${link}`;
+        
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(textToCopy);
+        } else {
+            const ta = document.createElement("textarea");
+            ta.value = textToCopy;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+
+        showToast('¡Enlace de solicitud copiado! Listo para enviar por WhatsApp.', 'success');
+        const waUrl = `https://wa.me/?text=${encodeURIComponent(textToCopy)}`;
+        window.open(waUrl, '_blank');
+    }
+
+    document.getElementById('btnShareLink').addEventListener('click', copyLinkAction);
+    document.getElementById('btnAdminCopyLink').addEventListener('click', copyLinkAction);
+
+    // Auto-Compress Image Files helper
+    function compressImage(file, maxWidth = 800, quality = 0.65) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = err => reject(err);
+            };
+            reader.onerror = err => reject(err);
+        });
+    }
+
+    // Setup File Upload Previews
+    function bindImageUpload(inputId, prevId, statusId, storeCallback) {
+        const input = document.getElementById(inputId);
+        const prev = document.getElementById(prevId);
+        const status = document.getElementById(statusId);
+
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    status.textContent = 'Procesando...';
+                    const compressedBase64 = await compressImage(file);
+                    storeCallback(compressedBase64);
+                    prev.src = compressedBase64;
+                    prev.classList.remove('hidden');
+                    status.textContent = 'Ready';
+                    status.className = 'text-[10px] text-emerald-600 font-bold';
+                } catch (err) {
+                    showToast('Error al procesar la imagen.', 'error');
+                }
+            }
+        });
+    }
+
+    bindImageUpload('c_fileImg1', 'c_prevImg1', 'c_statusImg1', b64 => img1Base64 = b64);
+    bindImageUpload('c_fileImg2', 'c_prevImg2', 'c_statusImg2', b64 => img2Base64 = b64);
+    bindImageUpload('c_fileImg3', 'c_prevImg3', 'c_statusImg3', b64 => img3Base64 = b64);
+
+    // Input Masks
+    document.getElementById('c_cedula').addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 11) val = val.substring(0, 11);
+        let formatted = '';
+        if (val.length > 0) formatted += val.substring(0, Math.min(3, val.length));
+        if (val.length > 3) formatted += '-' + val.substring(3, Math.min(10, val.length));
+        if (val.length > 10) formatted += '-' + val.substring(10, 11);
+        e.target.value = formatted;
+    });
+
+    document.getElementById('c_telefono').addEventListener('input', (e) => {
+        let val = e.target.value.replace(/\D/g, '');
+        if (val.length > 10) val = val.substring(0, 10);
+        let formatted = '';
+        if (val.length > 0) formatted += val.substring(0, Math.min(3, val.length));
+        if (val.length > 3) formatted += '-' + val.substring(3, Math.min(6, val.length));
+        if (val.length > 6) formatted += '-' + val.substring(6, 10);
+        e.target.value = formatted;
+    });
+
+    // Signature Canvas setup
+    const canvas = document.getElementById('c_sigCanvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+    let hasDrawn = false;
+
+    function initCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * (window.devicePixelRatio || 1);
+        canvas.height = rect.height * (window.devicePixelRatio || 1);
+        ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#1a3673';
+    }
+
+    setTimeout(initCanvas, 300);
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function startDraw(e) {
+        e.preventDefault();
+        isDrawing = true;
+        const p = getPos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+    }
+
+    function draw(e) {
+        if (!isDrawing) return;
+        e.preventDefault();
+        hasDrawn = true;
+        const p = getPos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+    }
+
+    function endDraw(e) {
+        if (isDrawing) {
+            isDrawing = false;
+            ctx.closePath();
+        }
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', endDraw, { passive: false });
+
+    document.getElementById('c_btnClearSig').addEventListener('click', () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        hasDrawn = false;
+    });
+
+    // GPS Capture
+    document.getElementById('c_btnGps').addEventListener('click', () => {
+        if (!navigator.geolocation) {
+            showToast('Geolocalización no soportada.', 'error');
+            return;
+        }
+        const btn = document.getElementById('c_btnGps');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Obteniendo coordenadas...';
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lng = pos.coords.longitude.toFixed(6);
+                gpsData = `https://maps.google.com/?q=${lat},${lng}`;
+                document.getElementById('c_gpsBox').classList.remove('hidden');
+                btn.classList.add('hidden');
+                showToast('Ubicación capturada correctamente', 'success');
+            },
+            (err) => {
+                btn.innerHTML = '<i class="fa-solid fa-crosshairs text-blue-600"></i> Reintentar Captura GPS';
+                showToast('No se pudo obtener la ubicación.', 'error');
+            },
+            { enableHighAccuracy: true, timeout: 8000 }
+        );
+    });
+
+    // CLIENT FORM SUBMISSION TO SUPABASE
+    document.getElementById('c_btnSubmit').addEventListener('click', async () => {
+        const nombre = document.getElementById('c_nombre').value.trim();
+        const apodo = document.getElementById('c_apodo').value.trim();
+        const cedula = document.getElementById('c_cedula').value.trim();
+        const telefono = document.getElementById('c_telefono').value.trim();
+        const provincia = document.getElementById('c_provincia').value.trim();
+        const ciudad = document.getElementById('c_ciudad').value.trim();
+        const barrio = document.getElementById('c_barrio').value.trim();
+        const calle = document.getElementById('c_calle').value.trim();
+        const numero = document.getElementById('c_numero').value.trim();
+        const monto = parseFloat(document.getElementById('c_monto').value);
+        const frecuencia = document.getElementById('c_frecuencia').value;
+        const trabajo = document.getElementById('c_trabajo').value.trim();
+        const ingresos = parseFloat(document.getElementById('c_ingresos').value);
+        const motivo = document.getElementById('c_motivo').value.trim();
+
+        if (!nombre || !cedula || cedula.length < 13 || !telefono || !provincia || !ciudad || !barrio || !calle) {
+            showToast('Por favor completa todos los campos personales y de dirección.', 'error');
+            return;
+        }
+
+        if (!monto || isNaN(monto) || !trabajo || !ingresos) {
+            showToast('Ingresa el monto solicitado, trabajo e ingresos.', 'error');
+            return;
+        }
+
+        if (!img1Base64 || !img2Base64 || !img3Base64) {
+            showToast('Debes adjuntar las 3 fotos obligatorias.', 'error');
+            return;
+        }
+
+        if (!hasDrawn) {
+            showToast('Por favor firma en el recuadro blanco.', 'error');
+            return;
+        }
+
+        const submitBtn = document.getElementById('c_btnSubmit');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando solicitud...';
+
+        try {
+            const firmaDataUrl = canvas.toDataURL('image/png');
+
+            const newRequest = {
+                nombre: nombre,
+                apodo: apodo || 'Sin apodo',
+                cedula: cedula,
+                telefono: telefono,
+                direccion: `${calle} ${numero ? '#' + numero : ''}, ${barrio}, ${ciudad}, ${provincia}`,
+                provincia: provincia,
+                ciudad: ciudad,
+                barrio: barrio,
+                calle: calle,
+                numero_casa: numero,
+                gps_url: gpsData || '',
+                monto_solicitado: monto,
+                frecuencia: frecuencia,
+                trabajo: trabajo,
+                ingresos_mensuales: ingresos,
+                motivo: motivo || 'Inversión personal / Trabajo',
+                foto_cedula_frente: img1Base64,
+                foto_cedula_atras: img2Base64,
+                foto_selfie: img3Base64,
+                firma: firmaDataUrl,
+                estado: 'PENDIENTE'
+            };
+
+            const { error } = await supabase.from('solicitudes_prestamos').insert([newRequest]);
+            if (error) throw error;
+
+            document.getElementById('clientLoanForm').classList.add('hidden');
+            document.getElementById('clientSuccessScreen').classList.remove('hidden');
+            showToast('¡Solicitud registrada correctamente!', 'success');
+
+            document.getElementById('c_btnNotifyWa').onclick = () => {
+                const msg = `Hola, acabo de llenar la solicitud de préstamo a nombre de *${nombre}* (Cédula: ${cedula}) por un monto de *RD$ ${monto.toLocaleString()}*. Por favor revisar.`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+            };
+
+        } catch (err) {
+            console.error('Error submitting form:', err);
+            showToast('Error al enviar solicitud. Intenta de nuevo.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane text-lg"></i> ENVIAR SOLICITUD DE PRÉSTAMO';
+        }
+    });
+
+    // ==========================================
+    // CONSULTAS Y TIEMPO REAL A SUPABASE
+    // ==========================================
+    async function fetchAllData() {
+        // Fetch Solicitudes
+        const { data: sol } = await supabase.from('solicitudes_prestamos').select('*').order('created_at', { ascending: false });
+        activeSolicitudes = sol || [];
+        renderSolicitudes();
+        updateDashboard();
+
+        // Fetch Clientes
+        const { data: cli } = await supabase.from('clientes').select('*').order('created_at', { ascending: false });
+        activeClientes = cli || [];
+        renderClientes();
+        updateDashboard();
+
+        // Fetch Prestamos
+        const { data: pres } = await supabase.from('prestamos').select('*').order('created_at', { ascending: false });
+        activePrestamos = pres || [];
+        renderPrestamos();
+        updateDashboard();
+    }
+
+    // Real-time subscription (Escuchar cambios en Supabase)
+    function setupRealtime() {
+        supabase.channel('custom-all-channel')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_prestamos' }, (payload) => {
+              fetchAllData();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, (payload) => {
+              fetchAllData();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'prestamos' }, (payload) => {
+              fetchAllData();
+          })
+          .subscribe();
+    }
+
+    // Render Dashboard stats
+    function updateDashboard() {
+        const pendingReqs = activeSolicitudes.filter(s => s.estado === 'PENDIENTE');
+        document.getElementById('dashTotalSolicitudes').textContent = pendingReqs.length;
+        document.getElementById('badgeSolicitudesCount').textContent = pendingReqs.length;
+        document.getElementById('pendingCountBadge').textContent = `${pendingReqs.length} Pendientes`;
+
+        const navBadge = document.getElementById('navSolicitudesBadge');
+        if (pendingReqs.length > 0) {
+            navBadge.classList.remove('hidden');
+        } else {
+            navBadge.classList.add('hidden');
+        }
+
+        document.getElementById('dashTotalClientes').textContent = activeClientes.length;
+        document.getElementById('activeClientsBadge').textContent = `${activeClientes.length} Registrados`;
+
+        document.getElementById('dashTotalPrestamos').textContent = activePrestamos.length;
+        document.getElementById('activeLoansBadge').textContent = `${activePrestamos.length} Activos`;
+
+        const totalMontoPrestado = activePrestamos.reduce((sum, p) => sum + (p.monto || 0), 0);
+        document.getElementById('dashTotalPrestado').textContent = `RD$ ${totalMontoPrestado.toLocaleString()}`;
+    }
+
+    // Render Solicitudes List
+    function renderSolicitudes() {
+        const container = document.getElementById('solicitudesList');
+        const pendings = activeSolicitudes.filter(s => s.estado === 'PENDIENTE');
+
+        if (pendings.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white p-8 text-center rounded-2xl border border-slate-200 text-slate-400 space-y-2">
+                    <i class="fa-solid fa-folder-open text-3xl text-slate-300"></i>
+                    <p class="text-xs font-bold text-slate-600">No hay solicitudes pendientes</p>
+                    <p class="text-[11px]">Envía el enlace a tus clientes para que llenen su formulario.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = pendings.map(item => `
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-amber-400 transition space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-extrabold text-sm text-slate-900">${item.nombre}</h3>
+                        <p class="text-[11px] text-slate-500">Cédula: ${item.cedula} | ${item.telefono}</p>
+                    </div>
+                    <span class="badge-status bg-amber-100 text-amber-800">PENDIENTE</span>
+                </div>
+
+                <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                        <span class="text-slate-400 block font-bold text-[9px] uppercase">Monto Pedido</span>
+                        <span class="font-black text-brand-navy text-xs">RD$ ${(item.monto_solicitado || 0).toLocaleString()}</span>
+                        <span class="text-slate-500">(${item.frecuencia})</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 block font-bold text-[9px] uppercase">Trabajo / Ingresos</span>
+                        <span class="font-bold text-slate-700">${item.trabajo}</span>
+                        <span class="text-emerald-700 font-bold block">RD$ ${(item.ingresos_mensuales || 0).toLocaleString()}</span>
+                    </div>
+                </div>
+
+                <button type="button" onclick="openReviewModal('${item.id}')" class="w-full bg-brand-navy hover:bg-brand-navyDark text-white font-bold text-xs py-2.5 rounded-xl shadow transition flex items-center justify-center gap-1.5">
+                    <i class="fa-solid fa-eye text-amber-400"></i>
+                    <span>REVISAR DOCUMENTOS Y APROBAR</span>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // Open Modal to Review & Approve
+    window.openReviewModal = function(id) {
+        const item = activeSolicitudes.find(s => s.id == id);
+        if (!item) return;
+
+        currentReviewItem = item;
+
+        document.getElementById('m_clienteNombre').textContent = item.nombre;
+        document.getElementById('m_clienteApodo').textContent = item.apodo || 'Sin apodo';
+        document.getElementById('m_clienteCedula').textContent = item.cedula;
+        document.getElementById('m_clienteTelefono').textContent = item.telefono;
+        document.getElementById('m_clienteDireccion').textContent = item.direccion;
+
+        const gpsBox = document.getElementById('m_clienteGpsBox');
+        if (item.gps_url) {
+            document.getElementById('m_clienteGpsLink').href = item.gps_url;
+            gpsBox.classList.remove('hidden');
+        } else {
+            gpsBox.classList.add('hidden');
+        }
+
+        document.getElementById('m_clienteTrabajo').textContent = item.trabajo;
+        document.getElementById('m_clienteIngresos').textContent = `RD$ ${(item.ingresos_mensuales || 0).toLocaleString()}`;
+        document.getElementById('m_solicitadoMonto').textContent = `RD$ ${(item.monto_solicitado || 0).toLocaleString()}`;
+        document.getElementById('m_solicitadoFrecuencia').textContent = item.frecuencia;
+
+        document.getElementById('m_inputMontoAprobado').value = item.monto_solicitado;
+        document.getElementById('m_selectFrecuencia').value = item.frecuencia || 'Semanal';
+
+        document.getElementById('m_imgFrontal').src = item.foto_cedula_frente || '';
+        document.getElementById('m_imgReverso').src = item.foto_cedula_atras || '';
+        document.getElementById('m_imgSelfie').src = item.foto_selfie || '';
+        document.getElementById('m_imgFirma').src = item.firma || '';
+
+        document.getElementById('approvalModal').classList.remove('hidden');
+    };
+
+    document.getElementById('btnCloseModal').addEventListener('click', () => {
+        document.getElementById('approvalModal').classList.add('hidden');
+    });
+
+    // APPROVE AND CONVERT TO CLIENT & ACTIVE LOAN
+    document.getElementById('btnApproveRequest').addEventListener('click', async () => {
+        if (!currentReviewItem) return;
+
+        const montoAprobado = parseFloat(document.getElementById('m_inputMontoAprobado').value);
+        const frecuencia = document.getElementById('m_selectFrecuencia').value;
+        const interes = parseFloat(document.getElementById('m_inputInteres').value) || 20;
+        const zona = document.getElementById('m_selectZona').value;
+
+        if (!montoAprobado || isNaN(montoAprobado) || montoAprobado <= 0) {
+            showToast('Ingresa un monto aprobado válido.', 'error');
+            return;
+        }
+
+        const approveBtn = document.getElementById('btnApproveRequest');
+        approveBtn.disabled = true;
+        approveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Aprobando...';
+
+        try {
+            // 1. Update Solicitud Status
+            await supabase.from('solicitudes_prestamos').update({
+                estado: 'APROBADO',
+                monto_aprobado: montoAprobado
+            }).eq('id', currentReviewItem.id);
+
+            // 2. Create Active Client profile with all documents & photos
+            const newClient = {
+                nombre: currentReviewItem.nombre,
+                apodo: currentReviewItem.apodo,
+                cedula: currentReviewItem.cedula,
+                telefono: currentReviewItem.telefono,
+                direccion: currentReviewItem.direccion,
+                trabajo: currentReviewItem.trabajo,
+                ingresos: currentReviewItem.ingresos_mensuales,
+                foto_cedula_frente: currentReviewItem.foto_cedula_frente,
+                foto_cedula_atras: currentReviewItem.foto_cedula_atras,
+                foto_selfie: currentReviewItem.foto_selfie,
+                firma: currentReviewItem.firma,
+                zona: zona
+            };
+            
+            // Insertar cliente y obtener su nuevo ID
+            const { data: clientData, error: clientError } = await supabase.from('clientes').insert([newClient]).select();
+            if (clientError) throw clientError;
+            
+            const newClientId = clientData[0].id;
+
+            // 3. Create Active Loan
+            const newLoan = {
+                cliente_id: newClientId,
+                monto: montoAprobado,
+                tasa: interes,
+                plazo: frecuencia,
+                estado: 'Activo'
+            };
+            await supabase.from('prestamos').insert([newLoan]);
+
+            document.getElementById('approvalModal').classList.add('hidden');
+            approveBtn.disabled = false;
+            approveBtn.innerHTML = '<i class="fa-solid fa-check text-sm"></i> APROBAR Y CREAR CLIENTE';
+
+            showToast(`¡Préstamo de RD$ ${montoAprobado.toLocaleString()} APROBADO!`, 'success');
+
+            const cleanPhone = currentReviewItem.telefono.replace(/\D/g, '');
+            const waMsg = `*PERDOMO SOVEREIGN CAPITAL*\n\n¡Hola ${currentReviewItem.nombre}! 👋\nTu solicitud de préstamo ha sido *APROBADA* exitosamente por un monto de *RD$ ${montoAprobado.toLocaleString()}* (${frecuencia}).\n\nNos pondremos en contacto para la entrega del capital. ¡Gracias por preferirnos!`;
+            
+            setTimeout(() => {
+                if (confirm('¿Deseas enviar la notificación de aprobación al cliente por WhatsApp ahora mismo?')) {
+                    window.open(`https://wa.me/1${cleanPhone}?text=${encodeURIComponent(waMsg)}`, '_blank');
+                }
+            }, 400);
+
+        } catch (err) {
+            console.error('Error approving loan:', err);
+            showToast('Error al procesar la aprobación.', 'error');
+            approveBtn.disabled = false;
+            approveBtn.innerHTML = '<i class="fa-solid fa-check text-sm"></i> APROBAR Y CREAR CLIENTE';
+        }
+    });
+
+    // REJECT REQUEST ACTION
+    document.getElementById('btnRejectRequest').addEventListener('click', async () => {
+        if (!currentReviewItem) return;
+
+        if (!confirm(`¿Estás seguro de rechazar la solicitud de ${currentReviewItem.nombre}?`)) return;
+
+        try {
+            await supabase.from('solicitudes_prestamos').update({
+                estado: 'RECHAZADO'
+            }).eq('id', currentReviewItem.id);
+            
+            document.getElementById('approvalModal').classList.add('hidden');
+            showToast('Solicitud rechazada.', 'info');
+        } catch (err) {
+            showToast('Error al rechazar solicitud.', 'error');
+        }
+    });
+
+    // RENDER CLIENTES LIST
+    function renderClientes() {
+        const container = document.getElementById('clientesList');
+        const searchVal = document.getElementById('clientSearchInput').value.toLowerCase().trim();
+
+        const filtered = activeClientes.filter(c => 
+            c.nombre.toLowerCase().includes(searchVal) || 
+            c.cedula.includes(searchVal)
+        );
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white p-8 text-center rounded-2xl border border-slate-200 text-slate-400">
+                    <i class="fa-solid fa-users text-3xl mb-1 text-slate-300"></i>
+                    <p class="text-xs font-bold text-slate-600">No hay clientes registrados aún</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = filtered.map(c => `
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="font-extrabold text-sm text-brand-navy">${c.nombre}</h4>
+                        <p class="text-[11px] text-slate-500">Cédula: <strong>${c.cedula}</strong> | Apodo: ${c.apodo || 'N/A'}</p>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-600 space-y-1 bg-slate-50 p-2.5 rounded-xl">
+                    <p>📍 <strong>Dirección:</strong> ${c.direccion}</p>
+                    <p>💼 <strong>Trabajo:</strong> ${c.trabajo} (RD$ ${(c.ingresos || 0).toLocaleString()}/mes)</p>
+                    <p>📞 <strong>Teléfono:</strong> ${c.telefono}</p>
+                </div>
+
+                <div class="flex gap-2">
+                    <button type="button" onclick="window.open('https://wa.me/1${c.telefono.replace(/\D/g, '')}', '_blank')" class="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-extrabold text-xs py-2 rounded-xl transition flex items-center justify-center gap-1">
+                        <i class="fa-brands fa-whatsapp text-sm text-emerald-600"></i>
+                        <span>WhatsApp</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    document.getElementById('clientSearchInput').addEventListener('input', renderClientes);
+
+    // RENDER PRESTAMOS LIST
+    function renderPrestamos() {
+        const container = document.getElementById('prestamosList');
+
+        if (activePrestamos.length === 0) {
+            container.innerHTML = `
+                <div class="bg-white p-8 text-center rounded-2xl border border-slate-200 text-slate-400">
+                    <i class="fa-solid fa-hand-holding-dollar text-3xl mb-1 text-slate-300"></i>
+                    <p class="text-xs font-bold text-slate-600">No hay préstamos activos registrados</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = activePrestamos.map(p => {
+            // Buscar el nombre del cliente asociado a este préstamo
+            const cliente = activeClientes.find(c => c.id == p.cliente_id);
+            const nombreCliente = cliente ? cliente.nombre : 'Cliente Desconocido';
+
+            return `
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-2">
+                <div class="flex items-center justify-between">
+                    <h4 class="font-black text-sm text-slate-900">${nombreCliente}</h4>
+                    <span class="badge-status bg-emerald-100 text-emerald-800">ACTIVO</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 text-[11px]">
+                    <div>
+                        <span class="text-slate-400 font-bold block text-[9px] uppercase">Capital Aprobado</span>
+                        <span class="font-black text-emerald-700 text-sm">RD$ ${(p.monto || 0).toLocaleString()}</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 font-bold block text-[9px] uppercase">Frecuencia / Interés</span>
+                        <span class="font-bold text-brand-navy">${p.plazo || 'Semanal'} (${p.tasa || 20}%)</span>
+                    </div>
+                </div>
+            </div>
+            `;
+        }).join('');
+    }
+
+    // INICIALIZACIÓN
+    window.addEventListener('load', () => {
+        checkMode();
+        fetchAllData();
+        setupRealtime();
+    });
+</script>
+    
+    
+    
+</body>
+</html>
